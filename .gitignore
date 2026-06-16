@@ -1,6 +1,9 @@
 
 node_modules
 
+# claude code
+.claude/settings.local.json
+
 # editor
 .vscode
 !.vscode/settings.json
