@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable",
+    "allow": [
+      "Read(./CLAUDE.md)",
+      "Read(./AGENTS.md)",
+      "Read(./docs/harness/**)",
+      "Read(./.claude/rules/**)",
+      "Read(./.claude/agents/**)",
+      "Bash(pwd)",
+      "Bash(ls *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git branch*)",
+      "Bash(git remote*)",
+      "Bash(git rev-parse*)",
+      "Bash(find .claude*)",
+      "Bash(find docs/harness*)",
+      "Bash(jq *)",
+      "Bash(bash -n *)",
+      "Bash(chmod +x .claude/hooks/om/*.sh)",
+      "Bash(chmod +x docs/harness/scripts/*.sh)",
+      "Bash(docs/harness/scripts/check-step06-guardrails.sh)"
+    ],
+    "ask": [
+      "Bash(git add *)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(git fetch*)",
+      "Bash(npm install*)",
+      "Bash(pnpm install*)",
+      "Bash(yarn install*)",
+      "Bash(go get*)",
+      "Bash(go mod tidy*)",
+      "Bash(docker *)",
+      "Bash(kubectl *)",
+      "Bash(helm *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "WebSearch",
+      "WebFetch",
+      "mcp__*"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(./.claude/settings.local.json)",
+      "Read(~/.claude.json)",
+      "Read(~/.claude/settings.json)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.kube/**)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(**/.env)",
+      "Edit(**/.env.*)",
+      "Edit(./.claude/settings.local.json)",
+      "Edit(~/.claude.json)",
+      "Edit(~/.claude/settings.json)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.kube/**)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Write(**/.env)",
+      "Write(**/.env.*)",
+      "Write(./.claude/settings.local.json)",
+      "Write(~/.claude.json)",
+      "Write(~/.claude/settings.json)",
+      "Write(~/.ssh/**)",
+      "Write(~/.aws/**)",
+      "Write(~/.kube/**)",
+      "Bash(rm -rf *)",
+      "Bash(sudo rm -rf *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -fdx*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(chmod -R 777 *)",
+      "Bash(chown -R *)",
+      "Bash(mkfs*)",
+      "Bash(shutdown*)",
+      "Bash(reboot*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": false,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [],
+    "filesystem": {
+      "allowRead": [
+        "."
+      ],
+      "allowWrite": [
+        "./.claude",
+        "./docs/harness",
+        "./tmp",
+        "/tmp"
+      ],
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.kube",
+        "~/.claude.json",
+        "~/.claude/settings.json",
+        "./.env",
+        "./.env.*"
+      ],
+      "denyWrite": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.kube",
+        "/etc",
+        "/bin",
+        "/sbin",
+        "/usr",
+        "/boot",
+        "/var/run/docker.sock"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "code.claude.com",
+        "docs.anthropic.com",
+        "github.com",
+        "*.github.com",
+        "raw.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "registry.npmjs.org",
+        "*.npmjs.org",
+        "proxy.golang.org",
+        "sum.golang.org"
+      ],
+      "deniedDomains": [],
+      "allowAllUnixSockets": false
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/om/om-block-dangerous-bash.sh"
+            ],
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/om/om-protect-sensitive-files.sh"
+            ],
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Read|Edit|Write|Grep|Glob|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/om/om-log-tool-usage.sh"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|Grep|Glob|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/om/om-log-tool-usage.sh"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|Read|Edit|Write|Grep|Glob|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/om/om-log-tool-usage.sh"
+            ],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
