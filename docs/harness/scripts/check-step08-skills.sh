@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -u
 
 PASS_COUNT=0
@@ -7,23 +6,22 @@ WARN_COUNT=0
 FAIL_COUNT=0
 
 pass() {
-  printf 'PASS  %s\n' "$1"
+  printf 'PASS %s\n' "$1"
   PASS_COUNT=$((PASS_COUNT + 1))
 }
 
 warn() {
-  printf 'WARN  %s\n' "$1"
+  printf 'WARN %s\n' "$1"
   WARN_COUNT=$((WARN_COUNT + 1))
 }
 
 fail() {
-  printf 'FAIL  %s\n' "$1"
+  printf 'FAIL %s\n' "$1"
   FAIL_COUNT=$((FAIL_COUNT + 1))
 }
 
 check_file_exists() {
   local file_path="$1"
-
   if [ -f "$file_path" ]; then
     pass "파일 존재: $file_path"
   else
@@ -33,7 +31,6 @@ check_file_exists() {
 
 check_executable() {
   local file_path="$1"
-
   if [ -x "$file_path" ]; then
     pass "실행 권한 확인: $file_path"
   else
@@ -43,12 +40,11 @@ check_executable() {
 
 check_bash_syntax() {
   local file_path="$1"
-
   if bash -n "$file_path" 2>/tmp/om-step08-bash-check.err; then
     pass "Shell 문법 정상: $file_path"
   else
     fail "Shell 문법 오류: $file_path"
-    sed 's/^/      /' /tmp/om-step08-bash-check.err
+    sed 's/^/  /' /tmp/om-step08-bash-check.err
   fi
 }
 
@@ -61,7 +57,7 @@ check_skill_frontmatter() {
     fail "Skill frontmatter 시작 누락: $skill_file"
   fi
 
-  if sed -n '2,20p' "$skill_file" | grep -qx -- '---'; then
+  if sed -n '2,25p' "$skill_file" | grep -qx -- '---'; then
     pass "Skill frontmatter 종료 확인: $skill_file"
   else
     fail "Skill frontmatter 종료 누락: $skill_file"
@@ -72,12 +68,18 @@ check_skill_frontmatter() {
   else
     fail "Skill description 누락: $skill_file"
   fi
+
+  if grep -q '^allowed-tools:' "$skill_file"; then
+    pass "Skill allowed-tools 확인: $skill_file"
+  else
+    warn "Skill allowed-tools 설정 없음: $skill_file"
+  fi
 }
 
 check_no_secret_patterns() {
   local file_path="$1"
 
-  if grep -Eiq '(authorization[[:space:]]*:[[:space:]]*bearer[[:space:]]+[A-Za-z0-9._~+/=-]+|api[_-]?key[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9._~+/=-]{12,}|client[_-]?secret[[:space:]]*[:=]|password[[:space:]]*[:=]|token[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9._~+/=-]{12,}|-----BEGIN[[:space:]]+(RSA|OPENSSH|PRIVATE)[[:space:]]+KEY-----)' "$file_path"; then
+  if grep -Eiq '(authorization[[:space:]]*:[[:space:]]*bearer[[:space:]]+[A-Za-z0-9._~+/=-]+|api[_-]?key[[:space:]]*[:=][[:space:]]*["'\''"]?[A-Za-z0-9._~+/=-]{12,}|client[_-]?secret[[:space:]]*[:=]|password[[:space:]]*[:=]|token[[:space:]]*[:=][[:space:]]*["'\''"]?[A-Za-z0-9._~+/=-]{12,}|-----BEGIN[[:space:]]+(RSA|OPENSSH|PRIVATE)[[:space:]]+KEY-----)' "$file_path"; then
     fail "Secret 유사 문자열 감지: $file_path"
   else
     pass "Secret 유사 문자열 없음: $file_path"
@@ -97,17 +99,21 @@ SKILL_FILES=(
   ".claude/skills/om-rule-router/SKILL.md"
   ".claude/skills/om-change-risk-review/SKILL.md"
   ".claude/skills/om-validation-plan/SKILL.md"
+  ".claude/skills/om-requirements-collector/SKILL.md"
 )
 
+printf '1. Check Skill files\n'
 for skill_file in "${SKILL_FILES[@]}"; do
   check_file_exists "$skill_file"
 done
 
+check_file_exists "docs/harness/templates/requirements-collection-template.md"
+check_file_exists "docs/harness/features/OPENMANAGER_FEATURE_LIST.md"
 check_file_exists "docs/harness/SKILLS_INVENTORY.md"
 check_file_exists "docs/harness/scripts/check-step08-skills.sh"
 
 printf '\n'
-
+printf '2. Check Skill frontmatter\n'
 for skill_file in "${SKILL_FILES[@]}"; do
   if [ -f "$skill_file" ]; then
     check_skill_frontmatter "$skill_file"
@@ -115,16 +121,19 @@ for skill_file in "${SKILL_FILES[@]}"; do
 done
 
 printf '\n'
-
+printf '3. Check secret-like patterns\n'
 for skill_file in "${SKILL_FILES[@]}"; do
   if [ -f "$skill_file" ]; then
     check_no_secret_patterns "$skill_file"
   fi
 done
 
+check_no_secret_patterns "docs/harness/templates/requirements-collection-template.md"
+check_no_secret_patterns "docs/harness/features/OPENMANAGER_FEATURE_LIST.md"
 check_no_secret_patterns "docs/harness/SKILLS_INVENTORY.md"
 
 printf '\n'
+printf '4. Check Inventory registrations\n'
 
 if grep -q 'om-project-context' docs/harness/SKILLS_INVENTORY.md; then
   pass "Inventory om-project-context 등록 확인"
@@ -150,7 +159,20 @@ else
   fail "Inventory om-validation-plan 등록 누락"
 fi
 
+if grep -q 'om-requirements-collector' docs/harness/SKILLS_INVENTORY.md; then
+  pass "Inventory om-requirements-collector 등록 확인"
+else
+  fail "Inventory om-requirements-collector 등록 누락"
+fi
+
+if grep -q 'OPENMANAGER_FEATURE_LIST.md' docs/harness/SKILLS_INVENTORY.md; then
+  pass "Inventory Feature List 등록 확인"
+else
+  fail "Inventory Feature List 등록 누락"
+fi
+
 printf '\n'
+printf '5. Check manual invocation setting\n'
 
 if grep -q 'disable-model-invocation: true' .claude/skills/om-change-risk-review/SKILL.md; then
   pass "om-change-risk-review 수동 호출 설정 확인"
@@ -158,27 +180,62 @@ else
   warn "om-change-risk-review에 disable-model-invocation 설정이 없습니다."
 fi
 
-if grep -q 'allowed-tools:' .claude/skills/om-project-context/SKILL.md \
-  && grep -q 'allowed-tools:' .claude/skills/om-rule-router/SKILL.md \
-  && grep -q 'allowed-tools:' .claude/skills/om-change-risk-review/SKILL.md \
-  && grep -q 'allowed-tools:' .claude/skills/om-validation-plan/SKILL.md; then
-  pass "모든 Skill allowed-tools 설정 확인"
+printf '\n'
+printf '6. Check Feature List content\n'
+
+if grep -q 'OpenManager Feature List' docs/harness/features/OPENMANAGER_FEATURE_LIST.md; then
+  pass "Feature List 제목 확인"
 else
-  warn "일부 Skill에 allowed-tools 설정이 없습니다."
+  fail "Feature List 제목 누락"
+fi
+
+if grep -q 'Feature ID' docs/harness/features/OPENMANAGER_FEATURE_LIST.md; then
+  pass "Feature ID 컬럼 확인"
+else
+  fail "Feature ID 컬럼 누락"
+fi
+
+if grep -q 'OM-FEAT' docs/harness/features/OPENMANAGER_FEATURE_LIST.md; then
+  pass "OM-FEAT 예시 확인"
+else
+  fail "OM-FEAT 예시 누락"
 fi
 
 printf '\n'
+printf '7. Check template content\n'
+
+if grep -q 'OpenManager Requirements Collection Template' docs/harness/templates/requirements-collection-template.md; then
+  pass "Requirements Collection Template 제목 확인"
+else
+  fail "Requirements Collection Template 제목 누락"
+fi
+
+if grep -q 'Feature List 반영' docs/harness/templates/requirements-collection-template.md; then
+  pass "Requirements Template Feature List 반영 항목 확인"
+else
+  fail "Requirements Template Feature List 반영 항목 누락"
+fi
+
+printf '\n'
+printf '8. Check script syntax and executable\n'
 
 check_bash_syntax "docs/harness/scripts/check-step08-skills.sh"
 check_executable "docs/harness/scripts/check-step08-skills.sh"
 
 printf '\n'
+printf '9. Check existing SigNoz Playwright Agent preservation\n'
 
-if git diff --name-only -- .claude/agents/playwright-test-planner.md .claude/agents/playwright-test-generator.md .claude/agents/playwright-test-healer.md | grep -q .; then
+if git diff --name-only -- \
+  .claude/agents/playwright-test-planner.md \
+  .claude/agents/playwright-test-generator.md \
+  .claude/agents/playwright-test-healer.md | grep -q .; then
   fail "기존 SigNoz Playwright Agent 변경 감지"
 else
   pass "기존 SigNoz Playwright Agent 미수정 확인"
 fi
+
+printf '\n'
+printf '10. Check protected local settings\n'
 
 if [ -f ".claude/settings.local.json" ]; then
   if git ls-files --error-unmatch .claude/settings.local.json >/dev/null 2>&1; then

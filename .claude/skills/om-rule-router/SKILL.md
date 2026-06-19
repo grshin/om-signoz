@@ -58,7 +58,6 @@ allowed-tools: Read Grep Glob
 
 ```text
 적용 Rule 판단 결과
-
 - 요청 요약:
 - 변경 후보 경로:
 - 적용 공통 Rule:
